@@ -32,6 +32,12 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
             res.send(treatment)
 
         })
+
+        app.post('/booked', async (req, res) => {
+            const body = req.body;
+            const result = await collectionBooked.insertOne(body)
+            res.send(result)
+        })
     } finally {
     }
 })().catch(console.dir)
