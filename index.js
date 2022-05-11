@@ -13,17 +13,26 @@ app.use(express.json())
 const { MongoClient, ServerApiVersion } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ztbi4.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
-/* client.connect(err => {
-  const collection = client.db("test").collection("devices");
-  // perform actions on the collection object
-  client.close();
-}); */
+
 
 (async () => {
     try {
         await client.connect()
-    } finally {
         console.log("db connected")
+
+        const db = client.db("doctors_portal")
+        const collectionTreatment = db.collection('treatments')
+        const collectionBooked = db.collection('booked')
+
+
+        app.get('/treatment', async (req, res) => {
+            const cursor = collectionTreatment.find({});
+            const treatment = await cursor.toArray()
+
+            res.send(treatment)
+
+        })
+    } finally {
     }
 })().catch(console.dir)
 
