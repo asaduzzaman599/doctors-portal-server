@@ -26,17 +26,44 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 
         app.get('/treatment', async (req, res) => {
-            const cursor = collectionTreatment.find({});
-            const treatment = await cursor.toArray()
+            const date = req.query.date || "May 14, 2022";
 
-            res.send(treatment)
+            const treatments = await collectionTreatment.find().toArray()
+            const booked = await collectionBooked.find({ formattedDate: date }).toArray()
+
+            treatments.forEach(treatment => {
+
+                const bookedAppointments = booked.filter(treatmentsTreatment => treatmentsTreatment.treatmentName === treatment.name)
+
+                const bookedSlots = bookedAppointments.map(a => a.slot)
+                const available = treatment.slots.filter(slot => !bookedSlots.includes(slot))
+                treatment.bookedSlots = bookedSlots
+
+                treatment.slots = available
+
+            })
+
+
+            res.send(treatments)
+            // res.send(treatment)
 
         })
 
-        app.post('/booked', async (req, res) => {
+        app.post('/booking', async (req, res) => {
             const body = req.body;
-            const result = await collectionBooked.insertOne(body)
-            res.send(result)
+            const query = {
+                treatmentName: body.treatmentName,
+                formattedDate: body.formattedDate,
+                email: body.email
+            }
+
+            const exists = await collectionBooked.findOne(query)
+
+            if (exists) {
+                return res.send({ success: false, message: `Appointment for ${body.treatmentName} on ${body.formattedDate} already booked` })
+            }
+            const appointment = await collectionBooked.insertOne(body)
+            res.send({ success: true, appointment })
         })
     } finally {
     }
