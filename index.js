@@ -1,7 +1,7 @@
 require('dotenv').config()
 const express = require('express');
 const cors = require('cors');
-
+var jwt = require('jsonwebtoken');
 const app = express()
 const port = process.env.PORT || 5000
 
@@ -37,7 +37,10 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
             };
             const option = { upsert: true }
             const result = await collectionuUser.updateOne(filter, updateDoc, option)
-            res.send(result)
+            const token = jwt.sign({
+                email
+            }, process.env.ACCESS_TOKEN, { expiresIn: '1d' });
+            res.send({ token, result })
         })
         app.get('/treatment', async (req, res) => {
             const date = req.query.date || "May 14, 2022";
