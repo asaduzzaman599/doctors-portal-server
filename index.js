@@ -23,8 +23,22 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
         const db = client.db("doctors_portal")
         const collectionTreatment = db.collection('treatments')
         const collectionBooked = db.collection('booked')
+        const collectionuUser = db.collection('users')
 
 
+        app.put('/user/:email', async (req, res) => {
+            const email = req.params.email
+            const user = req.body
+            console.log(email)
+            const filter = { email: email };
+            const updateDoc = {
+                $set: user
+
+            };
+            const option = { upsert: true }
+            const result = await collectionuUser.updateOne(filter, updateDoc, option)
+            res.send(result)
+        })
         app.get('/treatment', async (req, res) => {
             const date = req.query.date || "May 14, 2022";
 
@@ -43,10 +57,19 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
             })
 
-
             res.send(treatments)
             // res.send(treatment)
 
+        })
+        app.get('/booking', async (req, res) => {
+            const queryEmail = req.query.email
+            const query = {
+                email: queryEmail
+            }
+
+            const appointments = await collectionBooked.find(query).toArray()
+
+            res.send({ success: true, appointments })
         })
 
         app.post('/booking', async (req, res) => {
@@ -71,11 +94,11 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
 
 app.get('/', (req, res) => {
-    res.send(`Server running at port: ${port}`)
+    res.send(`Server running at port: ${port} `)
 })
 
 
 
 app.listen(port, () => {
-    console.log(`Server running at port: ${port}`)
+    console.log(`Server running at port: ${port} `)
 })
