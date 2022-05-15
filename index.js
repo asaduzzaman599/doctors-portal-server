@@ -9,10 +9,29 @@ const port = process.env.PORT || 5000
 app.use(cors())
 app.use(express.json())
 
+const verifyToken = (req, res, next) => {
+    const authorization = req.headers.authorization
 
+    if (!authorization) {
+        return res.status(401).send({ message: "unAuthorization" })
+    }
+
+    const token = authorization.split(' ')[1]
+    jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: "forbidden" })
+        }
+
+        req.decoded = decoded
+
+        next()
+    });
+}
 const { MongoClient, ServerApiVersion } = require('mongodb');
+const { is } = require('express/lib/request');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ztbi4.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+
 
 
 (async () => {
@@ -24,7 +43,23 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
         const collectionTreatment = db.collection('treatments')
         const collectionBooked = db.collection('booked')
         const collectionuUser = db.collection('users')
+        const isAdmin = async (email) => {
+            const user = await collectionuUser.findOne({ email })
+            const admin = user.role === "admin"
+            return admin
+        }
 
+        app.get('/user', verifyToken, async (req, res) => {
+            const email = req.query.email
+            const decodedEmail = req.decoded.email
+            /* if (email !== decodedEmail) {
+                return res.status(403).send({ message: 'forbidden' })
+            } */
+
+            const users = await collectionuUser.find().toArray()
+
+            res.send({ success: true, users })
+        })
 
         app.put('/user/:email', async (req, res) => {
             const email = req.params.email
@@ -41,6 +76,44 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
                 email
             }, process.env.ACCESS_TOKEN, { expiresIn: '1d' });
             res.send({ token, result })
+        })
+
+        app.put('/user/admin/:email', verifyToken, async (req, res) => {
+            const userEmail = req.params.email
+            const adminEmail = req.query.email
+            const decodeEmail = req.decoded.email
+            if (adminEmail !== decodeEmail) {
+                return res.status(403).send({ message: 'forbidden' })
+            }
+
+
+            const filter = { email: userEmail };
+            const updateDoc = {
+                $set: {
+                    role: 'admin'
+                }
+
+            };
+            const admin = await isAdmin(adminEmail)
+            if (admin) {
+                console.log('Admin', admin)
+
+                const result = await collectionuUser.updateOne(filter, updateDoc)
+
+                return res.send({ success: true, result })
+            } else {
+                res.send({ success: false })
+            }
+        })
+
+        app.get('/admin', verifyToken, async (req, res) => {
+            const queryEmail = req.query.email
+            const decodedEmail = req.decoded.email
+            if (queryEmail !== decodedEmail) {
+                return res.status(403).send({ message: 'forbidden' })
+            }
+            const admin = await isAdmin(queryEmail)
+            res.send({ admin })
         })
         app.get('/treatment', async (req, res) => {
             const date = req.query.date || "May 14, 2022";
@@ -64,8 +137,12 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
             // res.send(treatment)
 
         })
-        app.get('/booking', async (req, res) => {
+        app.get('/booking', verifyToken, async (req, res) => {
             const queryEmail = req.query.email
+            const decodedEmail = req.decoded.email
+            if (queryEmail !== decodedEmail) {
+                return res.status(403).send({ message: "forbidden" })
+            }
             const query = {
                 email: queryEmail
             }
