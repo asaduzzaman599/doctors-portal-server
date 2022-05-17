@@ -27,7 +27,7 @@ const verifyToken = (req, res, next) => {
         next()
     });
 }
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const { is } = require('express/lib/request');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ztbi4.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -159,6 +159,14 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
         app.get('/doctor', verifyToken, isAdmin, async (req, res) => {
 
             const doctors = await collectionuDoctor.find({}).toArray()
+
+            res.send(doctors)
+
+
+        })
+        app.delete('/doctor/:doctorId', verifyToken, isAdmin, async (req, res) => {
+            const doctorId = req.params.doctorId
+            const doctors = await collectionuDoctor.deleteOne({ _id: ObjectId(doctorId) })
 
             res.send(doctors)
 
