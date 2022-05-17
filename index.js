@@ -43,10 +43,26 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
         const collectionTreatment = db.collection('treatments')
         const collectionBooked = db.collection('booked')
         const collectionuUser = db.collection('users')
-        const isAdmin = async (email) => {
+        const collectionuDoctor = db.collection('doctors')
+
+        const isAdmin = async (req, res, next) => {
+            const email = req.query.email
+
+            console.log('admin')
+            const adminEmail = req.query.email
+            const decodeEmail = req.decoded.email
+            if (adminEmail !== decodeEmail) {
+                return res.status(403).send({ message: 'forbidden' })
+            }
+
             const user = await collectionuUser.findOne({ email })
             const admin = user.role === "admin"
-            return admin
+
+            if (!admin) {
+                return res.send({ success: false })
+            }
+
+            next()
         }
 
         app.get('/user', verifyToken, async (req, res) => {
@@ -78,13 +94,8 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
             res.send({ token, result })
         })
 
-        app.put('/user/admin/:email', verifyToken, async (req, res) => {
+        app.put('/user/admin/:email', verifyToken, isAdmin, async (req, res) => {
             const userEmail = req.params.email
-            const adminEmail = req.query.email
-            const decodeEmail = req.decoded.email
-            if (adminEmail !== decodeEmail) {
-                return res.status(403).send({ message: 'forbidden' })
-            }
 
 
             const filter = { email: userEmail };
@@ -94,26 +105,18 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
                 }
 
             };
-            const admin = await isAdmin(adminEmail)
-            if (admin) {
-                console.log('Admin', admin)
 
-                const result = await collectionuUser.updateOne(filter, updateDoc)
+            const result = await collectionuUser.updateOne(filter, updateDoc)
 
-                return res.send({ success: true, result })
-            } else {
-                res.send({ success: false })
-            }
+            return res.send({ success: true, result })
+
+
+
         })
 
-        app.get('/admin', verifyToken, async (req, res) => {
-            const queryEmail = req.query.email
-            const decodedEmail = req.decoded.email
-            if (queryEmail !== decodedEmail) {
-                return res.status(403).send({ message: 'forbidden' })
-            }
-            const admin = await isAdmin(queryEmail)
-            res.send({ admin })
+        app.get('/admin', verifyToken, isAdmin, async (req, res) => {
+
+            res.send({ admin: true })
         })
         app.get('/treatment', async (req, res) => {
             const date = req.query.date || "May 14, 2022";
@@ -137,6 +140,31 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
             // res.send(treatment)
 
         })
+
+        app.get('/treatmentname', async (req, res) => {
+            const result = await collectionTreatment.find({}).project({ name: 1 }).toArray()
+            res.send(result)
+        })
+
+
+        //add doctor
+        app.post('/doctor', verifyToken, isAdmin, async (req, res) => {
+            const doctor = req.body
+            const result = await collectionuDoctor.insertOne(doctor)
+
+            res.send(result)
+
+
+        })
+        app.get('/doctor', verifyToken, isAdmin, async (req, res) => {
+
+            const doctors = await collectionuDoctor.find({}).toArray()
+
+            res.send(doctors)
+
+
+        })
+
         app.get('/booking', verifyToken, async (req, res) => {
             const queryEmail = req.query.email
             const decodedEmail = req.decoded.email
