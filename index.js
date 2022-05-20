@@ -1,7 +1,11 @@
 require('dotenv').config()
 const express = require('express');
 const cors = require('cors');
-var jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
+// const verifyToken = require('./extra');
+const nodemailer = require("nodemailer");
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+
 const app = express()
 const port = process.env.PORT || 5000
 
@@ -27,7 +31,43 @@ const verifyToken = (req, res, next) => {
         next()
     });
 }
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+/* 
+const sendMail = async (email) => {
+    console.log('email for mail', email)
+    try {
+
+        //  let testAccount = await nodemailer.createTestAccount();
+
+        
+        let transporter = nodemailer.createTransport({
+            host: "smtp.mandrillapp.com",
+            port: 587,
+            secure: false, // true for 465, false for other ports
+            auth: {
+                user: 'DP', 
+                pass: process.env.MAIL_SECRET, 
+            },
+        });
+
+        // send mail with defined transport object
+        let info = await transporter.sendMail({
+            from: process.env.MAIL_SENDER_EMAIL, 
+            to: email, 
+            subject: "Hello ✔",
+            text: "Hello world?", 
+            html: "<b>Hello world?</b>", 
+        });
+
+        console.log("Message sent: %s", info.messageId);
+       
+
+        // Preview only available when sending through an Ethereal account
+        console.log("Preview URL: %s", nodemailer.getTestMessageUrl(info));
+
+    } catch (err) { console.log(err) }
+} */
+
+
 const { is } = require('express/lib/request');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.ztbi4.mongodb.net/myFirstDatabase?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
@@ -187,15 +227,31 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
 
             res.send({ success: true, appointments })
         })
+        app.get('/booking/:appointmentId', verifyToken, async (req, res) => {
+            const { appointmentId } = req.params
+            const queryEmail = req.query.email
+            const decodedEmail = req.decoded.email
+            if (queryEmail !== decodedEmail) {
+                return res.status(403).send({ message: "forbidden" })
+            }
+            const query = {
+                _id: ObjectId(appointmentId)
+            }
+
+            const appointment = await collectionBooked.findOne(query)
+
+            res.send({ success: true, appointment })
+        })
 
         app.post('/booking', async (req, res) => {
             const body = req.body;
+            const email = body.email
             const query = {
                 treatmentName: body.treatmentName,
                 formattedDate: body.formattedDate,
                 email: body.email
             }
-
+            console.log(body)
             const exists = await collectionBooked.findOne(query)
 
             if (exists) {
@@ -203,6 +259,25 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
             }
             const appointment = await collectionBooked.insertOne(body)
             res.send({ success: true, appointment })
+
+            /*  const mcData = {
+                 members: [
+                     {
+                         eamil: queryEmail,
+                         status: 'subscribed' //pending
+                     }
+                 ]
+             }
+             const mcDataPost = JSON.stringify(mcData)
+ 
+             const option = {
+                 url: '',
+                 method: 'POST',
+                 headers: {
+                     Authorization: 'auth '
+                 },
+                 body: mcDataPost
+             } */
         })
     } finally {
     }
