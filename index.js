@@ -5,6 +5,8 @@ const jwt = require('jsonwebtoken');
 // const verifyToken = require('./extra');
 const nodemailer = require("nodemailer");
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 
 const app = express()
 const port = process.env.PORT || 5000
@@ -279,6 +281,43 @@ const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology:
                  body: mcDataPost
              } */
         })
+        app.post('/create-payment-intent', verifyToken, async (req, res) => {
+            const { price } = req.body
+            const amount = price * 100
+            const paymentIntens = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: [
+                    'card'
+                ]
+            })
+
+            res.send({
+                clientSecret: paymentIntens.client_secret
+            })
+        })
+
+        app.put('/payment/:id', verifyToken, async (req, res) => {
+            const { id } = req.params
+            const { email } = req.query
+            const body = req.body
+            console.log(body, id)
+            const filter = {
+                _id: ObjectId(id)
+            }
+            const updateDoc = {
+                $set: body
+            }
+            const option = {
+                upsert: true
+            }
+            const result = await collectionBooked.updateOne(filter, updateDoc, option)
+            console.log(result)
+            res.send(result)
+
+
+        })
+
     } finally {
     }
 })().catch(console.dir)
